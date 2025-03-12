@@ -121,45 +121,10 @@ def optimize_graph(
     # - All nodes must remain in the graph
     # - Edge weights must be positive and ≤ 10
 
-    # ---------------------------------------------------------------
-    # EXAMPLE: Simple strategy to meet edge count constraint
-    # This is just a basic example - you should implement a more
-    # sophisticated strategy based on query analysis!
-    # ---------------------------------------------------------------
-
-    # Count total edges in the initial graph
-    total_edges = sum(len(edges) for edges in optimized_graph.values())
-
-    # If we exceed the limit, we need to prune edges
-    if total_edges > max_total_edges:
-        print(
-            f"Initial graph has {total_edges} edges, need to remove {total_edges - max_total_edges}"
-        )
-
-        # Example pruning logic (replace with your optimized strategy)
-        edges_to_remove = total_edges - max_total_edges
-        removed = 0
-
-        # Sort nodes by number of outgoing edges (descending)
-        nodes_by_edge_count = sorted(
-            optimized_graph.keys(), key=lambda n: len(optimized_graph[n]), reverse=True
-        )
-
-        # Remove edges from nodes with the most connections first
-        for node in nodes_by_edge_count:
-            if removed >= edges_to_remove:
-                break
-
-            # As a simplistic example, remove the edge with lowest weight
-            if len(optimized_graph[node]) > 1:  # Ensure node keeps at least one edge
-                # Find edge with minimum weight
-                min_edge = min(optimized_graph[node].items(), key=lambda x: x[1])
-                del optimized_graph[node][min_edge[0]]
-                removed += 1
-
-    # =============================================================
-    # End of your implementation
-    # =============================================================
+    # optimized_graph = path_graph()
+    # optimized_graph = topheavy_graph()
+    # optimized_graph = topheavy_cycle_graph()
+    optimized_graph = topheavy_weighted_graph()
 
     # Verify constraints
     if not verify_constraints(optimized_graph, max_edges_per_node, max_total_edges):
@@ -168,6 +133,89 @@ def optimize_graph(
 
     return optimized_graph
 
+def path_graph(num_nodes=NUM_NODES):
+    optimized_graph = {}
+    optimized_graph['0'] = {'1': 1, '2': 1, '3': 1} # presumably more than 3 nodes available
+    for i in range(1, num_nodes-1):
+        optimized_graph[str(i)] = {str(i-1): 0.5, str(i+1): 0.5}
+    optimized_graph[str(num_nodes-1)] = {str(num_nodes-2): 1}
+    return optimized_graph
+
+def topheavy_graph(num_nodes=NUM_NODES):
+    optimized_graph = {}
+    special = 50
+    for i in range(num_nodes):
+        optimized_graph[str(i)] = dict()
+    for i in range(special): # class 3 nodes
+        class3_1, class3_2 = random.sample(range(special), 2)
+        class2 = random.randint(special, num_nodes-special-1)
+        optimized_graph[str(i)] = {str(class3_1): 1, str(class3_2): 1, str(class2): 1}
+    for i in range(special, num_nodes-special): # class 2 nodes
+        fst, snd = random.sample(range(num_nodes), 2)
+        optimized_graph[str(i)] = {str(fst): 1, str(snd): 1}
+    for i in range(num_nodes-special, num_nodes): # class 1 nodes
+        optimized_graph[str(i)] = {str(random.randint(special, num_nodes-1)): 1}
+    return optimized_graph
+
+def topheavy_cycle_graph(num_nodes=NUM_NODES):
+    optimized_graph = {}
+    special = 50
+    for i in range(num_nodes):
+        optimized_graph[str(i)] = dict()
+    for i in range(special): # class 3 nodes
+        class3_1, class3_2 = random.sample(range(special), 2)
+        class2 = random.randint(special, num_nodes-special-1)
+        optimized_graph[str(i)] = {str(class3_1): 1, str(class3_2): 1, str(class2): 1}
+    for i in range(special, num_nodes-special): # class 2 nodes
+        fst, snd = random.sample(range(num_nodes), 2)
+        optimized_graph[str(i)] = {str(fst): 1, str(snd): 1}
+    for i in range(num_nodes-special, num_nodes): # class 1 nodes
+        if i == num_nodes-1:
+            optimized_graph[str(i)] = {str(random.randint(special, num_nodes-special-1)): 1}
+        else:
+            optimized_graph[str(i)] = {str(i+1): 1}
+    return optimized_graph
+
+def topheavy_weighted_graph(num_nodes=NUM_NODES):
+    def pdf(x):
+        return np.exp(-x/10)/10
+    def transform(x):
+        return pdf(x)
+    optimized_graph = {}
+    special = 50
+    for i in range(num_nodes):
+        optimized_graph[str(i)] = dict()
+    for i in range(special): # class 3 nodes
+        class3_1, class3_2 = random.sample(range(special), 2)
+        class2 = random.randint(special, num_nodes-special-1)
+        optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
+    for i in range(special, num_nodes-special): # class 2 nodes
+        fst, snd = random.sample(range(num_nodes), 2)
+        optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
+    for i in range(num_nodes-special, num_nodes): # class 1 nodes
+        optimized_graph[str(i)] = {str(random.randint(special, num_nodes-1)): 1}
+    return optimized_graph
+
+# def topheavy_weighted_visitall_graph(num_nodes=NUM_NODES):
+#     def pdf(x):
+#         return np.exp(-x/10)/10
+#     def transform(x):
+#         return pdf(x)
+#     optimized_graph = {}
+#     num_class3 = 50
+#     num_class1 = 100
+#     for i in range(num_nodes):
+#         optimized_graph[str(i)] = dict()
+#     for i in range(num_class3): # class 3 nodes
+#         class3_1, class3_2 = random.sample(range(num_class3), 2)
+#         class2 = random.randint(special, num_nodes-special-1)
+#         optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
+#     for i in range(special, num_nodes-special): # class 2 nodes
+#         fst, snd = random.sample(range(num_nodes), 2)
+#         optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
+#     for i in range(num_nodes-special, num_nodes): # class 1 nodes
+#         optimized_graph[str(i)] = {str(random.randint(special, num_nodes-1)): 1}
+#     return optimized_graph
 
 if __name__ == "__main__":
     # Get file paths
