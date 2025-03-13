@@ -124,7 +124,9 @@ def optimize_graph(
     # optimized_graph = path_graph()
     # optimized_graph = topheavy_graph()
     # optimized_graph = topheavy_cycle_graph()
-    optimized_graph = topheavy_weighted_graph()
+    optimized_graph = topheavy_weighted_graph() # <- this is my final solution
+    # optimized_graph = topheavy_weighted_visitall_graph()
+    # optimized_graph = topheavy_weighted_cycle_graph()
 
     # Verify constraints
     if not verify_constraints(optimized_graph, max_edges_per_node, max_total_edges):
@@ -182,6 +184,27 @@ def topheavy_weighted_graph(num_nodes=NUM_NODES):
     def transform(x):
         return pdf(x)
     optimized_graph = {}
+    num_class3 = 50
+    num_class1 = 50
+    for i in range(num_nodes):
+        optimized_graph[str(i)] = dict()
+    for i in range(num_class3): # class 3 nodes
+        class3_1, class3_2 = random.sample(range(num_class3), 2) # choosing from class 3
+        class2 = random.randint(num_class3, num_nodes-num_class1-1) # choosing from class 2
+        optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
+    for i in range(num_class3, num_nodes-num_class1): # class 2 nodes
+        fst, snd = random.sample(range(num_nodes), 2) # choosing from anywhere
+        optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
+    for i in range(num_nodes-num_class1, num_nodes): # class 1 nodes
+        optimized_graph[str(i)] = {str(random.randint(num_class3, num_nodes-1)): 1} # choosing from class 2 or 1
+    return optimized_graph
+
+def topheavy_weighted_cycle_graph(num_nodes=NUM_NODES):
+    def pdf(x):
+        return np.exp(-x/10)/10
+    def transform(x):
+        return pdf(x)
+    optimized_graph = {}
     special = 50
     for i in range(num_nodes):
         optimized_graph[str(i)] = dict()
@@ -190,32 +213,54 @@ def topheavy_weighted_graph(num_nodes=NUM_NODES):
         class2 = random.randint(special, num_nodes-special-1)
         optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
     for i in range(special, num_nodes-special): # class 2 nodes
-        fst, snd = random.sample(range(num_nodes), 2)
+        # fst, snd = random.sample(range(num_nodes), 2)
+
+        prob_factor = [3, 3, 1]
+        tot_ps = prob_factor[0]*special+prob_factor[1]*(num_nodes-2*special)+prob_factor[2]*special
+        ps = [prob_factor[0]/tot_ps for _ in range(special)] + [prob_factor[1]/tot_ps for _ in range(num_nodes-2*special)] + [prob_factor[2]/tot_ps for _ in range(special)]
+
+        fst = np.random.choice(range(num_nodes), p=ps)
+        snd = np.random.choice(range(num_nodes), p=ps)
+        while snd == fst:
+            snd = np.random.choice(range(num_nodes), p=ps)
         optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
     for i in range(num_nodes-special, num_nodes): # class 1 nodes
-        optimized_graph[str(i)] = {str(random.randint(special, num_nodes-1)): 1}
+        if i == num_nodes-1:
+            optimized_graph[str(i)] = {str(random.randint(special, num_nodes-special-1)): 1}
+        else:
+            optimized_graph[str(i)] = {str(i+1): 1}
     return optimized_graph
 
-# def topheavy_weighted_visitall_graph(num_nodes=NUM_NODES):
-#     def pdf(x):
-#         return np.exp(-x/10)/10
-#     def transform(x):
-#         return pdf(x)
-#     optimized_graph = {}
-#     num_class3 = 50
-#     num_class1 = 100
-#     for i in range(num_nodes):
-#         optimized_graph[str(i)] = dict()
-#     for i in range(num_class3): # class 3 nodes
-#         class3_1, class3_2 = random.sample(range(num_class3), 2)
-#         class2 = random.randint(special, num_nodes-special-1)
-#         optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
-#     for i in range(special, num_nodes-special): # class 2 nodes
-#         fst, snd = random.sample(range(num_nodes), 2)
-#         optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
-#     for i in range(num_nodes-special, num_nodes): # class 1 nodes
-#         optimized_graph[str(i)] = {str(random.randint(special, num_nodes-1)): 1}
-#     return optimized_graph
+def topheavy_weighted_visitall_graph(num_nodes=NUM_NODES):
+    def pdf(x):
+        return np.exp(-x/10)/10
+    def transform(x):
+        return pdf(x)
+    optimized_graph = {}
+    num_class3 = 50
+    num_class1 = 100
+    for i in range(num_nodes):
+        optimized_graph[str(i)] = dict()
+    # class 3 nodes
+    for i in range(num_class3):
+        class3_1, class3_2 = random.sample(range(num_class3), 2)
+        class2 = random.randint(num_class3, num_nodes-num_class1-1)
+        optimized_graph[str(i)] = {str(class3_1): transform(class3_1), str(class3_2): transform(class3_2), str(class2): transform(class2)}
+    # class 2 nodes
+    class1_forced = dict(zip(random.sample(range(num_nodes), num_class1), range(num_nodes-num_class1, num_nodes)))
+    for i in range(num_class3, num_nodes-num_class1):
+        if i in class1_forced:
+            fst = class1_forced[i]
+            snd = random.randint(0, num_nodes-1)
+            while snd == class1_forced[i]:
+                snd = random.randint(0, num_nodes-1)
+        else:
+            fst, snd = random.sample(range(num_nodes), 2)
+        optimized_graph[str(i)] = {str(fst): pdf(fst), str(snd): pdf(snd)}
+    # class 1 nodes
+    for i in range(num_nodes-num_class1, num_nodes):
+        optimized_graph[str(i)] = {str(random.randint(num_class3, num_nodes-1)): 1}
+    return optimized_graph
 
 if __name__ == "__main__":
     # Get file paths
